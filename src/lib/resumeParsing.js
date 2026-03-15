@@ -11,12 +11,37 @@ function normalizeExtension(fileName = '') {
   return ALLOWED_EXTENSIONS.find(extension => lower.endsWith(extension)) || ''
 }
 
+function isAllowedMimeType(mimeType = '') {
+  const normalized = String(mimeType).toLowerCase()
+  return [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+  ].includes(normalized)
+}
+
+export function sanitizeFilename(fileName = '') {
+  const extension = normalizeExtension(fileName)
+  const baseName = String(fileName || 'resume')
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-zA-Z0-9-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return `${baseName || 'resume'}${extension || ''}`
+}
+
 export function parseMultipartForm(req) {
   const form = formidable({
     multiples: false,
     maxFiles: 1,
     maxFileSize: MAX_FILE_SIZE,
-    filter: ({ originalFilename }) => Boolean(normalizeExtension(originalFilename))
+    allowEmptyFiles: false,
+    filter: ({ mimetype, originalFilename }) => Boolean(normalizeExtension(originalFilename)) && isAllowedMimeType(mimetype)
   })
 
   return new Promise((resolve, reject) => {
@@ -41,6 +66,10 @@ export async function extractResumeText(file) {
   const extension = normalizeExtension(file.originalFilename)
   if (!extension) {
     throw new Error('Only PDF, JPG, and PNG files are allowed')
+  }
+
+  if (!isAllowedMimeType(file.mimetype)) {
+    throw new Error('Unsupported file type uploaded')
   }
 
   const buffer = await readFile(file.filepath)

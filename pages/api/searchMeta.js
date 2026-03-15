@@ -1,4 +1,5 @@
 import { getFirestoreDb, getJobsCollectionName } from '../../src/lib/firebaseAdmin.js'
+import { enforceRateLimit } from '../../src/lib/rateLimit.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -6,6 +7,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    enforceRateLimit(req, res, { keyPrefix: 'search-meta', limit: 60, windowMs: 60 * 1000 })
     const db = getFirestoreDb()
     const snapshot = await db
       .collection(getJobsCollectionName())

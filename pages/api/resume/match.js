@@ -1,4 +1,5 @@
 import { requireAuthenticatedUser } from '../../../src/lib/apiAuth.js'
+import { enforceRateLimit } from '../../../src/lib/rateLimit.js'
 import { processResumeUpload } from '../../../src/lib/resumeWorkflow.js'
 
 export const config = {
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    enforceRateLimit(req, res, { keyPrefix: 'resume-upload', limit: 8, windowMs: 15 * 60 * 1000 })
     const authenticatedUser = await requireAuthenticatedUser(req)
     const payload = await processResumeUpload(req, authenticatedUser)
     return res.status(200).json(payload)

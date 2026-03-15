@@ -1,4 +1,5 @@
 import { getFirestoreDb, getJobsCollectionName } from '../../src/lib/firebaseAdmin.js'
+import { enforceRateLimit } from '../../src/lib/rateLimit.js'
 import {
   normalizeText,
   scoreSearchResult,
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    enforceRateLimit(req, res, { keyPrefix: 'search-jobs', limit: 120, windowMs: 60 * 1000 })
     const query = String(req.query?.keyword || req.query?.query || '').trim()
     const location = String(req.query?.location || '').trim()
     const company = String(req.query?.company || '').trim()

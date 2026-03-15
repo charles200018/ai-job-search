@@ -18,7 +18,7 @@ export async function requireAuthenticatedUser(req) {
   }
 
   const auth = getFirebaseAdminAuth()
-  const decodedToken = await auth.verifyIdToken(token)
+  const decodedToken = await auth.verifyIdToken(token, true)
   const db = getFirestoreDb()
   const userRecord = {
     uid: decodedToken.uid,

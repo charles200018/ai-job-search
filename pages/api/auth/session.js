@@ -1,4 +1,5 @@
 import { requireAuthenticatedUser } from '../../../src/lib/apiAuth.js'
+import { enforceRateLimit } from '../../../src/lib/rateLimit.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -6,6 +7,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    enforceRateLimit(req, res, { keyPrefix: 'auth-session', limit: 20, windowMs: 60 * 1000 })
     const user = await requireAuthenticatedUser(req)
     return res.status(200).json({ user })
   } catch (error) {

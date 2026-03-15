@@ -4,6 +4,11 @@ node_modules/
 # next.js
 .next/
 out/
+.vercel/
+.turbo/
+.cache/
+coverage/
+dist/
 
 # environment and secrets
 .env
@@ -11,14 +16,26 @@ out/
 .env.*.local
 
 # logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+firebase-debug.log*
 
 # misc
 .DS_Store
 *.pem
 *.p12
 *.key
+*.tmp
+*.temp
+*.bak
+.idea/
+.vscode/
+.history/
+.firebase/
+tmp/
+temp/
+.eslintcache
 sample-resume.png
 eng.traineddata
