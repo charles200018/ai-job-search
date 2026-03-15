@@ -11,6 +11,7 @@
     "ingest": "node src/ingest/firecrawl_ingest.js"
   },
   "dependencies": {
+    "@upstash/redis": "^1.37.0",
     "dotenv": "^16.4.5",
     "firebase": "^11.3.1",
     "firebase-admin": "^13.4.0",

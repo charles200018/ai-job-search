@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    enforceRateLimit(req, res, { keyPrefix: 'auth-session', limit: 20, windowMs: 60 * 1000 })
+    await enforceRateLimit(req, res, { keyPrefix: 'auth-session', limit: 20, windowMs: 60 * 1000 })
     const user = await requireAuthenticatedUser(req)
     return res.status(200).json({ user })
   } catch (error) {

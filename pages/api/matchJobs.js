@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    enforceRateLimit(req, res, { keyPrefix: 'match-jobs', limit: 30, windowMs: 5 * 60 * 1000 })
+    await enforceRateLimit(req, res, { keyPrefix: 'match-jobs', limit: 30, windowMs: 5 * 60 * 1000 })
     const authenticatedUser = await requireAuthenticatedUser(req)
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
     const requestedSkills = Array.isArray(body.skills) ? body.skills : []

@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    enforceRateLimit(req, res, { keyPrefix: 'resume-upload', limit: 8, windowMs: 15 * 60 * 1000 })
+    await enforceRateLimit(req, res, { keyPrefix: 'resume-upload', limit: 8, windowMs: 15 * 60 * 1000 })
     const authenticatedUser = await requireAuthenticatedUser(req)
     const payload = await processResumeUpload(req, authenticatedUser)
     return res.status(200).json(payload)

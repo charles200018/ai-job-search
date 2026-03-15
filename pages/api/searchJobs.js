@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    enforceRateLimit(req, res, { keyPrefix: 'search-jobs', limit: 120, windowMs: 60 * 1000 })
+    await enforceRateLimit(req, res, { keyPrefix: 'search-jobs', limit: 120, windowMs: 60 * 1000 })
     const query = String(req.query?.keyword || req.query?.query || '').trim()
     const location = String(req.query?.location || '').trim()
     const company = String(req.query?.company || '').trim()
@@ -157,6 +157,6 @@ export default async function handler(req, res) {
     })
   } catch (error) {
     console.error(error)
-    return res.status(500).json({ error: error.message || 'Search failed' })
+    return res.status(error.statusCode || 500).json({ error: error.message || 'Search failed' })
   }
 }

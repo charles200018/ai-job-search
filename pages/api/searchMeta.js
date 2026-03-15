@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    enforceRateLimit(req, res, { keyPrefix: 'search-meta', limit: 60, windowMs: 60 * 1000 })
+    await enforceRateLimit(req, res, { keyPrefix: 'search-meta', limit: 60, windowMs: 60 * 1000 })
     const db = getFirestoreDb()
     const snapshot = await db
       .collection(getJobsCollectionName())
@@ -30,6 +30,6 @@ export default async function handler(req, res) {
     })
   } catch (error) {
     console.error(error)
-    return res.status(500).json({ error: error.message || 'Failed to load search metadata' })
+    return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to load search metadata' })
   }
 }
