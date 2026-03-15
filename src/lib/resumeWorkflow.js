@@ -1,4 +1,5 @@
 import { unlink } from 'node:fs/promises'
+import { FieldValue } from 'firebase-admin/firestore'
 import { getFirestoreDb, getJobsCollectionName, getStorageBucket } from './firebaseAdmin.js'
 import { normalizeText, serializeJob } from './jobSearch.js'
 import { extractResumeText, parseMultipartForm, sanitizeFilename } from './resumeParsing.js'
@@ -23,24 +24,49 @@ export async function processResumeUpload(req, authenticatedUser) {
       throw error
     }
 
+    const db = getFirestoreDb()
+    const uploadedFileName = `${Date.now()}-${sanitizeFilename(file.originalFilename)}`
+    const storagePath = `resumes/${authenticatedUser.uid}/${uploadedFileName}`
+    let fileUrl = null
+
     let uploadedResumePath = null
     try {
       const bucket = getStorageBucket()
-      const destination = `resumes/${authenticatedUser.uid}/${Date.now()}-${sanitizeFilename(file.originalFilename)}`
+      const destination = storagePath
       await bucket.upload(file.filepath, {
         destination,
         metadata: {
           contentType: file.mimetype,
           metadata: {
-            originalFilename: sanitizeFilename(file.originalFilename),
+            originalFilename: uploadedFileName,
             userId: authenticatedUser.uid,
           }
         }
       })
+
+      try {
+        const [signedUrl] = await bucket.file(destination).getSignedUrl({
+          action: 'read',
+          expires: '03-01-2500',
+        })
+        fileUrl = signedUrl
+      } catch {
+        fileUrl = `gs://${bucket.name}/${destination}`
+      }
+
       uploadedResumePath = destination
     } catch (storageError) {
       console.error('Failed to upload resume to Firebase Storage', storageError)
     }
+
+    const resumeRef = await db.collection('resumes').add({
+      userId: authenticatedUser.uid,
+      fileName: uploadedFileName,
+      fileUrl,
+      uploadedAt: FieldValue.serverTimestamp(),
+      extractedSkills: [],
+      storagePath: uploadedResumePath,
+    })
 
     const analysis = await analyzeResumeText(extractedText)
     const resumeSkills = buildResumeSkills(analysis)
@@ -50,7 +76,8 @@ export async function processResumeUpload(req, authenticatedUser) {
       throw error
     }
 
-    const db = getFirestoreDb()
+    await resumeRef.set({ extractedSkills: resumeSkills }, { merge: true })
+
     await db.collection('users').doc(authenticatedUser.uid).set({
       uid: authenticatedUser.uid,
       email: authenticatedUser.email || null,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/router'
 import { useAuth } from '../src/context/AuthContext.js'
 
 const DEFAULT_FILTERS = {
@@ -94,7 +95,8 @@ function JobCard({ job }) {
 }
 
 export default function Home() {
-  const { user, authError, loginWithGoogle, logout } = useAuth()
+  const router = useRouter()
+  const { user, authError, loginWithGoogle, logout, getCurrentIdToken } = useAuth()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [meta, setMeta] = useState({ locations: [], experienceLevels: [] })
   const [jobs, setJobs] = useState([])
@@ -104,6 +106,24 @@ export default function Home() {
   const [hasMore, setHasMore] = useState(false)
   const [nextCursor, setNextCursor] = useState(null)
   const sentinelRef = useRef(null)
+
+  useEffect(() => {
+    if (!router.isReady) return
+
+    const queryFilters = {
+      query: String(router.query.query || ''),
+      company: String(router.query.company || ''),
+      location: String(router.query.location || ''),
+      remoteType: String(router.query.remoteType || ''),
+      experienceLevel: String(router.query.experienceLevel || ''),
+      skills: String(router.query.skills || ''),
+    }
+
+    const hasQueryFilter = Object.values(queryFilters).some(Boolean)
+    if (hasQueryFilter) {
+      setFilters(current => ({ ...current, ...queryFilters }))
+    }
+  }, [router.isReady, router.query])
 
   const experienceOptions = useMemo(() => {
     const values = meta.experienceLevels.length > 0 ? meta.experienceLevels : FALLBACK_EXPERIENCE
@@ -162,7 +182,10 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(`/api/searchJobs?${params.toString()}`)
+      const token = await getCurrentIdToken().catch(() => null)
+      const response = await fetch(`/api/searchJobs?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
       const payload = await response.json()
       if (!response.ok) {
         throw new Error(payload.error || 'Search failed')

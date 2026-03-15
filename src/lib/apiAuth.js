@@ -9,16 +9,7 @@ function getBearerToken(req) {
   return header.slice('Bearer '.length).trim()
 }
 
-export async function requireAuthenticatedUser(req) {
-  const token = getBearerToken(req)
-  if (!token) {
-    const error = new Error('Missing authentication token')
-    error.statusCode = 401
-    throw error
-  }
-
-  const auth = getFirebaseAdminAuth()
-  const decodedToken = await auth.verifyIdToken(token, true)
+async function upsertAuthenticatedUser(decodedToken) {
   const db = getFirestoreDb()
   const userRecord = {
     uid: decodedToken.uid,
@@ -31,4 +22,32 @@ export async function requireAuthenticatedUser(req) {
 
   await db.collection('users').doc(decodedToken.uid).set(userRecord, { merge: true })
   return userRecord
+}
+
+export async function requireAuthenticatedUser(req) {
+  const token = getBearerToken(req)
+  if (!token) {
+    const error = new Error('Missing authentication token')
+    error.statusCode = 401
+    throw error
+  }
+
+  const auth = getFirebaseAdminAuth()
+  const decodedToken = await auth.verifyIdToken(token, true)
+  return upsertAuthenticatedUser(decodedToken)
+}
+
+export async function getOptionalAuthenticatedUser(req) {
+  const token = getBearerToken(req)
+  if (!token) {
+    return null
+  }
+
+  try {
+    const auth = getFirebaseAdminAuth()
+    const decodedToken = await auth.verifyIdToken(token, true)
+    return await upsertAuthenticatedUser(decodedToken)
+  } catch {
+    return null
+  }
 }

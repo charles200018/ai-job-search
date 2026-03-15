@@ -1,5 +1,7 @@
 import { getFirestoreDb, getJobsCollectionName } from '../../src/lib/firebaseAdmin.js'
+import { FieldValue } from 'firebase-admin/firestore'
 import { enforceRateLimit } from '../../src/lib/rateLimit.js'
+import { getOptionalAuthenticatedUser } from '../../src/lib/apiAuth.js'
 import {
   normalizeText,
   scoreSearchResult,
@@ -150,11 +152,39 @@ export default async function handler(req, res) {
       return toMillis(right.scrapedAt) - toMillis(left.scrapedAt)
     })
 
-    return res.status(200).json({
+    const responsePayload = {
       jobs: candidates.slice(0, limit),
       hasMore,
       nextCursor: hasMore && lastVisible ? String(toMillis(lastVisible.get('scrapedAt'))) : null
-    })
+    }
+
+    res.status(200).json(responsePayload)
+
+    // Track search history asynchronously so search response latency is unaffected.
+    void (async () => {
+      try {
+        const authenticatedUser = await getOptionalAuthenticatedUser(req)
+        if (!authenticatedUser) return
+
+        await db.collection('searchHistory').add({
+          userId: authenticatedUser.uid,
+          query,
+          filters: {
+            company,
+            location,
+            remoteType,
+            experienceLevel,
+            skills,
+          },
+          resultCount: responsePayload.jobs.length,
+          timestamp: FieldValue.serverTimestamp(),
+        })
+      } catch (trackingError) {
+        console.error('Search history tracking failed', trackingError)
+      }
+    })()
+
+    return
   } catch (error) {
     console.error(error)
     return res.status(error.statusCode || 500).json({ error: error.message || 'Search failed' })
