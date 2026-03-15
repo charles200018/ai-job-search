@@ -20,6 +20,13 @@ const REMOTE_OPTIONS = [
 
 const FALLBACK_EXPERIENCE = ['Intern', 'Junior', 'Mid', 'Senior', 'Lead', 'Staff', 'Principal']
 
+const QUICK_PRESETS = [
+  { label: 'Remote React', values: { query: 'react', remoteType: 'remote', skills: 'react,typescript' } },
+  { label: 'Backend Node', values: { query: 'backend', skills: 'node,typescript,api' } },
+  { label: 'Senior Roles', values: { experienceLevel: 'Senior' } },
+  { label: 'AI / ML', values: { query: 'machine learning', skills: 'python,ml,ai' } },
+]
+
 function FilterSelect({ label, value, onChange, options }) {
   return (
     <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
@@ -96,7 +103,7 @@ function JobCard({ job }) {
 
 export default function Home() {
   const router = useRouter()
-  const { user, authError, loginWithGoogle, logout, getCurrentIdToken } = useAuth()
+  const { user, authError, getCurrentIdToken } = useAuth()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [meta, setMeta] = useState({ locations: [], experienceLevels: [] })
   const [jobs, setJobs] = useState([])
@@ -239,11 +246,15 @@ export default function Home() {
     }
   }
 
+  function applyPreset(values) {
+    setFilters(current => ({ ...current, ...values }))
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden text-stone-950">
       <div className="pointer-events-none absolute inset-x-0 top-[-120px] h-[420px] bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.28),_transparent_58%),radial-gradient(circle_at_right,_rgba(20,184,166,0.18),_transparent_35%)]" />
       <main className="relative mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-12">
-        <header className="mb-10 flex flex-col gap-6 rounded-[32px] border border-stone-200 bg-white/80 p-8 shadow-[0_30px_120px_rgba(28,25,23,0.08)] backdrop-blur lg:flex-row lg:items-end lg:justify-between">
+        <header className="mb-10 rounded-[32px] border border-stone-200 bg-white/80 p-8 shadow-[0_30px_120px_rgba(28,25,23,0.08)] backdrop-blur">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-orange-600">AI Job Search Platform</p>
             <h1 className="mt-4 text-5xl font-semibold leading-tight text-stone-950 sm:text-6xl" style={{ fontFamily: 'Fraunces, Georgia, serif' }}>
@@ -254,28 +265,29 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex gap-3">
-            {user ? (
-              <button
-                onClick={logout}
-                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-orange-400 hover:text-orange-700"
+          <div className="mt-7 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {QUICK_PRESETS.map(preset => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyPreset(preset.values)}
+                  className="rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700 transition hover:border-orange-400 hover:text-orange-700"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <a
+                href="#results"
+                className="rounded-full bg-stone-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-orange-600"
               >
-                Sign out ({user.displayName || user.email || 'User'})
-              </button>
-            ) : (
-              <button
-                onClick={loginWithGoogle}
-                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-orange-400 hover:text-orange-700"
-              >
-                Sign in with Google
-              </button>
-            )}
-            <a className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-orange-400 hover:text-orange-700" href="#results">
-              Browse jobs
-            </a>
-            <a className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-600" href="/profile">
-              Upload Resume
-            </a>
+                Jump to Results
+              </a>
+            </div>
+
+            <p className="text-sm text-stone-600">
+              {user ? `Signed in as ${user.displayName || user.email || 'user'}.` : 'Sign in from the top menu to save history and resume data.'}
+            </p>
           </div>
         </header>
 
