@@ -2,8 +2,10 @@ import { getApps, initializeApp } from 'firebase/app'
 import {
   GoogleAuthProvider,
   getAuth,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut
 } from 'firebase/auth'
 
@@ -70,6 +72,30 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider()
   const result = await signInWithPopup(auth, provider)
   return result.user
+}
+
+export async function signInWithGoogleRedirect() {
+  const auth = getFirebaseClientAuth()
+  if (!auth) {
+    throw new Error('Firebase client auth is not configured. Set NEXT_PUBLIC_FIREBASE_* variables.')
+  }
+
+  const provider = new GoogleAuthProvider()
+  await signInWithRedirect(auth, provider)
+}
+
+export async function completeRedirectSignIn() {
+  const auth = getFirebaseClientAuth()
+  if (!auth) {
+    return null
+  }
+
+  try {
+    const result = await getRedirectResult(auth)
+    return result?.user || null
+  } catch {
+    return null
+  }
 }
 
 export async function signOutUser() {

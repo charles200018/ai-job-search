@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { getCurrentIdToken, signInWithGoogle, signOutUser, subscribeToAuthChanges } from '../lib/firebaseClient.js'
+import { completeRedirectSignIn, getCurrentIdToken, signInWithGoogle, signInWithGoogleRedirect, signOutUser, subscribeToAuthChanges } from '../lib/firebaseClient.js'
 
 const AuthContext = createContext(null)
 
@@ -9,6 +9,8 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState('')
 
   useEffect(() => {
+    completeRedirectSignIn()
+
     const unsubscribe = subscribeToAuthChanges(async nextUser => {
       setUser(nextUser)
 
@@ -42,6 +44,16 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function loginWithGoogleRedirect() {
+    try {
+      setAuthError('')
+      await signInWithGoogleRedirect()
+    } catch (error) {
+      setAuthError(error?.message || 'Google sign-in failed')
+      throw error
+    }
+  }
+
   async function logout() {
     try {
       setAuthError('')
@@ -52,7 +64,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const value = useMemo(() => ({ user, loading, authError, loginWithGoogle, logout, getCurrentIdToken }), [user, loading, authError])
+  const value = useMemo(() => ({ user, loading, authError, loginWithGoogle, loginWithGoogleRedirect, logout, getCurrentIdToken }), [user, loading, authError])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
