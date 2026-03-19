@@ -45,7 +45,11 @@ export default function AuthEntryPage() {
     async function run() {
       // If we're returning from Google, this resolves the pending redirect.
       try {
-        await getRedirectResult(auth)
+        const result = await getRedirectResult(auth)
+        if (result?.user) {
+          router.replace(nextPath)
+          return
+        }
       } catch {
         // Ignore; if redirect failed user can retry.
       }
