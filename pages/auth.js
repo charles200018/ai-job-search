@@ -3,6 +3,9 @@ import { useRouter } from 'next/router'
 import { getApps, initializeApp } from 'firebase/app'
 import { GoogleAuthProvider, getAuth, getRedirectResult, onAuthStateChanged, signInWithRedirect } from 'firebase/auth'
 
+const REDIRECT_STARTED_KEY = 'authRedirectStartedAt'
+const REDIRECT_TIMEOUT_MS = 30_000
+
 function getFirebaseClientConfig() {
   return {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -42,77 +45,80 @@ export default function AuthEntryPage() {
     const auth = getAuth(app)
 
     let cancelled = false
+    let unsubscribeAuth = null
+
+    function clearRedirectFlag() {
+      try {
+        localStorage.removeItem(REDIRECT_STARTED_KEY)
+      } catch {}
+    }
+
+    function getRedirectStartedAt() {
+      try {
+        const raw = localStorage.getItem(REDIRECT_STARTED_KEY)
+        const value = raw ? Number(raw) : NaN
+        return Number.isFinite(value) ? value : null
+      } catch {
+        return null
+      }
+    }
+
+    function setRedirectStartedNow() {
+      try {
+        localStorage.setItem(REDIRECT_STARTED_KEY, String(Date.now()))
+      } catch {}
+    }
 
     async function run() {
-      // Determine whether we've already initiated a redirect in this tab.
-      let alreadyStarted = false
-      try {
-        alreadyStarted = sessionStorage.getItem('authRedirectStarted') === '1'
-      } catch {}
+      const startedAt = getRedirectStartedAt()
 
-      // Fast path: first visit to /auth in this tab, start redirect immediately.
-      if (!alreadyStarted) {
-        try {
-          sessionStorage.setItem('authRedirectStarted', '1')
-        } catch {}
-
-        const provider = new GoogleAuthProvider()
-        await signInWithRedirect(auth, provider)
-        return
-      }
+      // Always keep listening for auth hydration; if user appears, continue.
+      unsubscribeAuth = onAuthStateChanged(auth, user => {
+        if (cancelled) return
+        if (user) {
+          clearRedirectFlag()
+          router.replace(nextPath)
+        }
+      })
 
       // 1) If we're returning from Google, resolve the pending redirect.
       try {
         const result = await getRedirectResult(auth)
         if (result?.user) {
-          try {
-            sessionStorage.removeItem('authRedirectStarted')
-          } catch {}
-
+          clearRedirectFlag()
           router.replace(nextPath)
           return
         }
       } catch (error) {
         // If Firebase returns an error after redirect, stop looping and show it.
+        clearRedirectFlag()
         const code = error?.code ? ` (${error.code})` : ''
         setErrorMessage(error?.message ? `${error.message}${code}` : `Google sign-in failed${code}`)
-        try {
-          sessionStorage.removeItem('authRedirectStarted')
-        } catch {}
-        return
-      }
-
-      // 2) Wait briefly for auth state to hydrate (auth.currentUser can be null momentarily).
-      const hydratedUser = await new Promise(resolve => {
-        let settled = false
-        const unsubscribe = onAuthStateChanged(auth, user => {
-          if (settled) return
-          settled = true
-          unsubscribe()
-          resolve(user || null)
-        })
-
-        setTimeout(() => {
-          if (settled) return
-          settled = true
-          unsubscribe()
-          resolve(auth.currentUser || null)
-        }, 2000)
-      })
-
-      if (hydratedUser) {
-        try {
-          sessionStorage.removeItem('authRedirectStarted')
-        } catch {}
-
-        router.replace(nextPath)
         return
       }
 
       if (cancelled) return
 
-      // 3) If we get here, redirect already started but no user materialized.
-      setErrorMessage('Sign-in did not complete. If this keeps happening, clear site data for this domain and ensure it is listed under Firebase Auth → Authorized domains.')
+      // 2) If already signed in, continue.
+      if (auth.currentUser) {
+        clearRedirectFlag()
+        router.replace(nextPath)
+        return
+      }
+
+      // 3) If this is our first attempt (no flag), start redirect now.
+      if (!startedAt) {
+        setRedirectStartedNow()
+        const provider = new GoogleAuthProvider()
+        await signInWithRedirect(auth, provider)
+        return
+      }
+
+      // 4) Redirect was already started. Give Firebase time to hydrate.
+      if (Date.now() - startedAt > REDIRECT_TIMEOUT_MS) {
+        clearRedirectFlag()
+        setErrorMessage('Sign-in did not complete. Please try again. If it keeps failing, ensure this domain is added under Firebase Auth → Authorized domains and that browser privacy extensions are not blocking the flow.')
+      }
     }
 
     run().catch(() => {
@@ -122,6 +128,9 @@ export default function AuthEntryPage() {
 
     return () => {
       cancelled = true
+      try {
+        unsubscribeAuth?.()
+      } catch {}
     }
   }, [router.isReady, nextPath])
 
