@@ -39,3 +39,5 @@ temp/
 .eslintcache
 sample-resume.png
 eng.traineddata
+.vercel
+.env*.local
