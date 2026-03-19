@@ -44,6 +44,23 @@ export default function AuthEntryPage() {
     let cancelled = false
 
     async function run() {
+      // Determine whether we've already initiated a redirect in this tab.
+      let alreadyStarted = false
+      try {
+        alreadyStarted = sessionStorage.getItem('authRedirectStarted') === '1'
+      } catch {}
+
+      // Fast path: first visit to /auth in this tab, start redirect immediately.
+      if (!alreadyStarted) {
+        try {
+          sessionStorage.setItem('authRedirectStarted', '1')
+        } catch {}
+
+        const provider = new GoogleAuthProvider()
+        await signInWithRedirect(auth, provider)
+        return
+      }
+
       // 1) If we're returning from Google, resolve the pending redirect.
       try {
         const result = await getRedirectResult(auth)
@@ -94,24 +111,8 @@ export default function AuthEntryPage() {
 
       if (cancelled) return
 
-      // 3) Avoid infinite redirect loops if sign-in fails (unauthorized domain, cookies blocked, etc.)
-      let alreadyStarted = false
-      try {
-        alreadyStarted = sessionStorage.getItem('authRedirectStarted') === '1'
-      } catch {}
-
-      if (alreadyStarted) {
-        setErrorMessage('Sign-in did not complete. Open /account and click “Sign in with Google”, and ensure this domain is added under Firebase Auth → Authorized domains.')
-        return
-      }
-
-      try {
-        sessionStorage.setItem('authRedirectStarted', '1')
-      } catch {}
-
-      // Start redirect-based sign-in.
-      const provider = new GoogleAuthProvider()
-      await signInWithRedirect(auth, provider)
+      // 3) If we get here, redirect already started but no user materialized.
+      setErrorMessage('Sign-in did not complete. If this keeps happening, clear site data for this domain and ensure it is listed under Firebase Auth → Authorized domains.')
     }
 
     run().catch(() => {
